@@ -149,6 +149,10 @@ export const ServerDialog = ({ open, onClose, currentFolderId, currentOrganizati
             delete finalConfig.keyboardLayout;
         }
         
+        if (config.protocol !== "ssh") {
+            delete finalConfig.enableLegacyCrypto;
+        }
+
         return finalConfig;
     };
 

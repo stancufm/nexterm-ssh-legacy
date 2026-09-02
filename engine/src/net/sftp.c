@@ -840,6 +840,8 @@ static void* sftp_session_thread(void* arg) {
     const char* priv_key   = nexterm_session_get_param(session, "privateKey");
     const char* passphrase = nexterm_session_get_param(session, "passphrase");
 
+    const char* legacy_crypto_param = nexterm_session_get_param(session, "legacyCrypto");
+    bool legacy_crypto = legacy_crypto_param && strcmp(legacy_crypto_param, "true") == 0;
     if (!username || strlen(username) == 0) {
         LOG_ERROR("SFTP session %s: missing username", session->session_id);
         nexterm_cp_send_session_result(cp, session->session_id, false,
@@ -861,7 +863,7 @@ static void* sftp_session_thread(void* arg) {
     }
 
     if (nexterm_ssh_setup_with_jumphosts(session->host, session->port,
-            jump_hosts, jump_count, &ssh_sock, &ssh, &jump_chain) != 0) {
+            jump_hosts, jump_count, legacy_crypto, &ssh_sock, &ssh, &jump_chain) != 0) {
         nexterm_cp_send_session_result(cp, session->session_id, false,
                                        "Failed to connect to SSH host", NULL);
         goto cleanup;

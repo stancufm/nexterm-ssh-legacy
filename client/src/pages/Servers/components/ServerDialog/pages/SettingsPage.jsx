@@ -71,6 +71,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
     const { servers } = useContext(ServerContext);
     const [keyboardLayout, setKeyboardLayout] = useState(config?.keyboardLayout || "en-us-qwerty");
     const [jumpHosts, setJumpHosts] = useState(config?.jumpHosts || []);
+    const [enableLegacyCrypto, setEnableLegacyCrypto] = useState(config?.enableLegacyCrypto === true);
     const [availableJumpHosts, setAvailableJumpHosts] = useState([]);
 
     const [colorDepth, setColorDepth] = useState(config?.colorDepth || "");
@@ -117,6 +118,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
         if (config?.backspaceMode !== undefined) setBackspaceMode(config.backspaceMode);
         if (config?.deleteMode !== undefined) setDeleteMode(config.deleteMode);
         if (config?.functionKeyMode !== undefined) setFunctionKeyMode(config.functionKeyMode);
+        if (config?.enableLegacyCrypto !== undefined) setEnableLegacyCrypto(config.enableLegacyCrypto === true);
     }, [config]);
 
     useEffect(() => {
@@ -237,6 +239,22 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                             {t('servers.dialog.settings.jumpHosts.noServersAvailable')}
                         </p>
                     )}
+                </div>
+            )}
+
+            {showJumpHosts && (
+                <div className="settings-toggle">
+                    <div className="settings-toggle-info">
+                        <span className="settings-toggle-label">Legacy SSH compatibility</span>
+                        <span className="settings-toggle-description">
+                            Enable only for devices that require outdated SSH algorithms. Modern algorithms remain preferred.
+                        </span>
+                    </div>
+                    <ToggleSwitch
+                        checked={enableLegacyCrypto}
+                        onChange={(value) => handleDisplaySettingChange('enableLegacyCrypto', value, setEnableLegacyCrypto)}
+                        id="legacy-ssh-crypto-toggle"
+                    />
                 </div>
             )}
 

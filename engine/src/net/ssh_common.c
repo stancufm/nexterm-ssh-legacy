@@ -13,7 +13,37 @@
 #include <errno.h>
 #include <stdlib.h>
 
+/* Modern algorithms remain first; legacy algorithms are opt-in per target. */
+static int configure_legacy_crypto(LIBSSH2_SESSION* session) {
+    static const struct { int method; const char* preferences; } policies[] = {
+        { LIBSSH2_METHOD_KEX,
+          "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256,diffie-hellman-group18-sha512,diffie-hellman-group16-sha512,diffie-hellman-group14-sha256,diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1" },
+        { LIBSSH2_METHOD_HOSTKEY,
+          "ssh-ed25519,ecdsa-sha2-nistp521,ecdsa-sha2-nistp384,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256,ssh-rsa,ssh-dss" },
+        { LIBSSH2_METHOD_CRYPT_CS,
+          "chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr,aes256-cbc,aes192-cbc,aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour" },
+        { LIBSSH2_METHOD_CRYPT_SC,
+          "chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr,aes256-cbc,aes192-cbc,aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour" },
+        { LIBSSH2_METHOD_MAC_CS,
+          "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,hmac-sha1,hmac-sha1-96,hmac-md5,hmac-md5-96" },
+        { LIBSSH2_METHOD_MAC_SC,
+          "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,hmac-sha1,hmac-sha1-96,hmac-md5,hmac-md5-96" },
+    };
+
+    for (size_t i = 0; i < sizeof(policies) / sizeof(policies[0]); i++) {
+        int rc = libssh2_session_method_pref(session, policies[i].method,
+                                             policies[i].preferences);
+        if (rc != 0) {
+            LOG_ERROR("Failed to set legacy SSH algorithm policy (method=%d, rc=%d)",
+                      policies[i].method, rc);
+            return -1;
+        }
+    }
+    return 0;
+}
+
 int nexterm_ssh_setup(const char* host, uint16_t port,
+                      bool legacy_crypto,
                       int* out_sock, LIBSSH2_SESSION** out_session) {
     int sock = nexterm_tcp_connect(host, port);
     if (sock < 0) return -1;
@@ -25,6 +55,13 @@ int nexterm_ssh_setup(const char* host, uint16_t port,
     }
 
     libssh2_session_set_timeout(session, 30000);
+
+    if (legacy_crypto && configure_legacy_crypto(session) != 0) {
+        LOG_ERROR("Could not enable legacy SSH compatibility for %s:%u", host, port);
+        libssh2_session_free(session);
+        close(sock);
+        return -1;
+    }
 
     if (libssh2_session_handshake(session, sock) != 0) {
         char* errmsg = NULL;
@@ -133,6 +170,7 @@ static int ssh_setup_on_channel(jump_chain_t* chain,
                                 LIBSSH2_SESSION* parent_session,
                                 int parent_sock,
                                 LIBSSH2_CHANNEL* channel,
+                                bool legacy_crypto,
                                 LIBSSH2_SESSION** out_session,
                                 int* out_proxy_sock) {
     int sv[2];
@@ -171,6 +209,13 @@ static int ssh_setup_on_channel(jump_chain_t* chain,
 
     libssh2_session_set_timeout(session, 30000);
 
+    if (legacy_crypto && configure_legacy_crypto(session) != 0) {
+        LOG_ERROR("Could not enable legacy SSH compatibility over tunnel");
+        libssh2_session_free(session);
+        close(sv[0]);
+        return -1;
+    }
+
     if (libssh2_session_handshake(session, sv[0]) != 0) {
         char* errmsg = NULL;
         libssh2_session_last_error(session, &errmsg, NULL, 0);
@@ -187,6 +232,7 @@ static int ssh_setup_on_channel(jump_chain_t* chain,
 
 int nexterm_ssh_setup_with_jumphosts(const char* target_host, uint16_t target_port,
                                      const jump_host_t* jump_hosts, int jump_count,
+                                     bool target_legacy_crypto,
                                      int* out_sock, LIBSSH2_SESSION** out_session,
                                      jump_chain_t* chain) {
     memset(chain, 0, sizeof(jump_chain_t));
@@ -194,12 +240,13 @@ int nexterm_ssh_setup_with_jumphosts(const char* target_host, uint16_t target_po
         chain->sockets[i] = -1;
 
     if (jump_count <= 0 || jump_count > MAX_JUMP_HOSTS)
-        return nexterm_ssh_setup(target_host, target_port, out_sock, out_session);
+        return nexterm_ssh_setup(target_host, target_port, target_legacy_crypto, out_sock, out_session);
 
     const jump_host_t* jh = &jump_hosts[0];
     LOG_INFO("Jump host chain: connecting to hop 1 (%s:%u)", jh->host, jh->port);
 
     if (nexterm_ssh_setup(jh->host, jh->port,
+                          false,
                           &chain->sockets[0], &chain->sessions[0]) != 0) {
         LOG_ERROR("Failed to connect to jump host 1 (%s:%u)", jh->host, jh->port);
         return -1;
@@ -231,6 +278,7 @@ int nexterm_ssh_setup_with_jumphosts(const char* target_host, uint16_t target_po
 
         int proxy_sock = -1;
         if (ssh_setup_on_channel(chain, chain->sessions[i - 1], chain->sockets[i - 1], fwd,
+                                 false,
                                  &chain->sessions[i], &proxy_sock) != 0) {
             LOG_ERROR("Failed SSH handshake over tunnel to jump host %d", i + 1);
             nexterm_jump_chain_teardown(chain);
@@ -262,6 +310,7 @@ int nexterm_ssh_setup_with_jumphosts(const char* target_host, uint16_t target_po
 
     int target_proxy_sock = -1;
     if (ssh_setup_on_channel(chain, chain->sessions[jump_count - 1], chain->sockets[jump_count - 1], target_fwd,
+                             target_legacy_crypto,
                              out_session, &target_proxy_sock) != 0) {
         LOG_ERROR("Failed SSH handshake to target over jump host chain");
         nexterm_jump_chain_teardown(chain);

@@ -190,6 +190,8 @@ static void* ssh_session_thread(void* arg) {
     const char* private_key = nexterm_session_get_param(session, "privateKey");
     const char* passphrase = nexterm_session_get_param(session, "passphrase");
 
+    const char* legacy_crypto_param = nexterm_session_get_param(session, "legacyCrypto");
+    bool legacy_crypto = legacy_crypto_param && strcmp(legacy_crypto_param, "true") == 0;
     if (!username || username[0] == '\0') {
         LOG_ERROR("SSH session %s: missing username", session->session_id);
         nexterm_cp_send_session_result(cp, session->session_id, false,
@@ -211,7 +213,7 @@ static void* ssh_session_thread(void* arg) {
     }
 
     if (nexterm_ssh_setup_with_jumphosts(session->host, session->port,
-            jump_hosts, jump_count, &ssh_sock, &ssh_session, &jump_chain) != 0) {
+            jump_hosts, jump_count, legacy_crypto, &ssh_sock, &ssh_session, &jump_chain) != 0) {
         nexterm_cp_send_session_result(cp, session->session_id, false,
                                        "Failed to connect to SSH host", NULL);
         goto cleanup;
@@ -321,6 +323,8 @@ static void* tunnel_session_thread(void* arg) {
     const char* remote_host = nexterm_session_get_param(session, "remoteHost");
     const char* remote_port_str = nexterm_session_get_param(session, "remotePort");
 
+    const char* legacy_crypto_param = nexterm_session_get_param(session, "legacyCrypto");
+    bool legacy_crypto = legacy_crypto_param && strcmp(legacy_crypto_param, "true") == 0;
     if (!username || username[0] == '\0') {
         nexterm_cp_send_session_result(cp, session->session_id, false, "Missing username", NULL);
         nexterm_sm_finish(&g_session_manager, session->session_id);
@@ -359,7 +363,7 @@ static void* tunnel_session_thread(void* arg) {
     }
 
     if (nexterm_ssh_setup_with_jumphosts(session->host, session->port,
-            jump_hosts, jump_count, &ssh_sock, &ssh_session, &jump_chain) != 0) {
+            jump_hosts, jump_count, legacy_crypto, &ssh_sock, &ssh_session, &jump_chain) != 0) {
         nexterm_cp_send_session_result(cp, session->session_id, false,
                                        "Failed to connect to SSH host", NULL);
         goto cleanup;
@@ -471,7 +475,7 @@ static void* exec_command_thread(void* arg) {
     jump_chain_t jump_chain = {0};
 
     if (nexterm_ssh_setup_with_jumphosts(args->host, args->port,
-            args->jump_hosts, args->jump_count, &ssh_sock, &ssh, &jump_chain) != 0) {
+            args->jump_hosts, args->jump_count, false, &ssh_sock, &ssh, &jump_chain) != 0) {
         nexterm_cp_send_exec_result(args->cp, args->request_id, false,
                                     NULL, NULL, -1, "Failed to connect to SSH host");
         exec_cmd_free(args);
@@ -666,7 +670,7 @@ static void* exec_batch_thread(void* arg) {
     jump_chain_t jump_chain = {0};
 
     if (nexterm_ssh_setup_with_jumphosts(a->host, a->port,
-            a->jump_hosts, a->jump_count, &ssh_sock, &ssh, &jump_chain) != 0) {
+            a->jump_hosts, a->jump_count, false, &ssh_sock, &ssh, &jump_chain) != 0) {
         nexterm_cp_send_exec_batch_result(a->cp, a->request_id, false,
                                           "Failed to connect to SSH host", NULL, 0);
         exec_batch_free(a);

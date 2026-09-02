@@ -39,11 +39,12 @@ const resolveCredentials = async (identity) => {
         : await getIdentityCredentials(identity.id);
 };
 
-const buildSSHParams = (identity, credentials) => {
+const buildSSHParams = (identity, credentials, serverConfig = null) => {
     const params = { username: identity.username || credentials.username || "" };
     if (credentials.password) params.password = credentials.password;
     if (credentials.privateKey || credentials["ssh-key"]) params.privateKey = credentials.privateKey || credentials["ssh-key"];
     if (credentials.passphrase) params.passphrase = credentials.passphrase;
+    if (serverConfig?.enableLegacyCrypto === true) params.legacyCrypto = "true";
     return params;
 };
 
@@ -143,7 +144,7 @@ const resolveFileTransferContext = async (entry, identityId, directIdentity, acc
     const credentials = await resolveCredentials(identity);
     const protocol = getEntryProtocol(entry);
     const { host, port } = getHostPort(entry, FILE_TRANSFER_PORTS[protocol] ?? 22);
-    const params = buildSSHParams(identity, credentials);
+    const params = buildSSHParams(identity, credentials, entry.config);
     if (protocol) params.protocol = protocol;
     return { identity, credentials, host, port, params };
 };
@@ -258,7 +259,7 @@ const createSSHConnectionForSession = async (sessionId, entry, identity, organiz
         requireEngine();
         const credentials = await resolveCredentials(identity);
         const { host, port } = getHostPort(entry);
-        const params = buildSSHParams(identity, credentials);
+        const params = buildSSHParams(identity, credentials, entry.config);
         const jumpHosts = await resolveJumpHosts(entry);
 
         const dataSocket = await openEngineSession(

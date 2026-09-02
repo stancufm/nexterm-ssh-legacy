@@ -62,7 +62,7 @@ module.exports = async (ws, req) => {
         }
 
         const params = {
-            ...buildSSHParams(identity, credentials),
+            ...buildSSHParams(identity, credentials, entry.config),
             remoteHost,
             remotePort: String(remotePort),
         };

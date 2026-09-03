@@ -48,6 +48,17 @@ const buildSSHParams = (identity, credentials, serverConfig = null) => {
     return params;
 };
 
+// Telnet has no authentication handshake. When an identity is attached, the
+// engine receives its username/password and writes them to the terminal stream
+// after connecting. Entries without an identity remain manual Telnet sessions.
+const buildTelnetParams = (identity, credentials) => {
+    if (!identity) return {};
+
+    const params = { username: identity.username || credentials.username || "" };
+    if (credentials.password) params.password = credentials.password;
+    return params;
+};
+
 const extractIdentity = (identityResult) => {
     return identityResult?.identity === undefined ? identityResult : identityResult.identity;
 };
@@ -124,7 +135,7 @@ const createConnectionForSession = async (sessionId, accountId) => {
 
     switch (protocol) {
         case "ssh": return createSSHConnectionForSession(sessionId, entry, identity, organizationId, script);
-        case "telnet": return createTelnetConnectionForSession(sessionId, entry, organizationId);
+        case "telnet": return createTelnetConnectionForSession(sessionId, entry, identity, organizationId);
         case "pve-lxc":
         case "pve-shell": return createPveLxcConnectionForSession(sessionId, entry, organizationId);
         case "pve-qemu":
@@ -310,15 +321,17 @@ const createSSHConnectionForSession = async (sessionId, entry, identity, organiz
     return session._connecting;
 };
 
-const createTelnetConnectionForSession = async (sessionId, entry, organizationId) => {
+const createTelnetConnectionForSession = async (sessionId, entry, identity, organizationId) => {
     requireEngine();
     const session = requireSession(sessionId);
     const { ip, port = 23 } = entry.config || {};
 
     if (!ip) throw new Error("Missing host configuration");
 
+    const credentials = identity ? await resolveCredentials(identity) : {};
+    const params = buildTelnetParams(identity, credentials);
     const dataSocket = await openEngineSession(
-        sessionId, SessionType.Telnet, ip, port, {}, entry.config?.engineId
+        sessionId, SessionType.Telnet, ip, port, params, entry.config?.engineId
     );
 
     await SessionManager.initRecording(sessionId, organizationId);
@@ -341,7 +354,14 @@ const createTelnetConnectionForSession = async (sessionId, entry, organizationId
         auditLogId: session.auditLogId,
     });
 
-    logger.info("Telnet connected", { sessionId, ip, port });
+    // Telnet endpoints commonly buffer input until their login prompt appears,
+    // so send both lines once the engine has connected. Do not log credentials.
+    if (params.username && params.password) {
+        dataSocket.write(`${params.username}\r\n${params.password}\r\n`);
+        logger.info("Telnet login credentials sent", { sessionId, target: ip, port });
+    }
+
+    logger.info("Telnet connected", { sessionId, ip, port, autoLogin: Boolean(params.username && params.password) });
     return { success: true };
 }
 
@@ -481,5 +501,6 @@ module.exports = {
     getSFTPAIClient,
     getSessionPassword,
     buildSSHParams,
+    buildTelnetParams,
     resolveJumpHosts,
 };

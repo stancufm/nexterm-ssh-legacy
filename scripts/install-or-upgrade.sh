@@ -2,7 +2,7 @@
 # Install or upgrade Nexterm SSH Legacy from a tagged public release.
 set -Eeuo pipefail
 
-VERSION="v1.2.2-nsg.8"
+VERSION="v1.2.2-nsg.9"
 CONTAINER="nexterm"
 PORT="6989"
 NETWORK="bridge"
@@ -32,6 +32,15 @@ GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$VERSION" "https://$host/$pr
 
 if docker inspect "$CONTAINER" >/dev/null 2>&1; then
   exec bash "$source_dir/scripts/migrate-existing-aio.sh" --apply --container "$CONTAINER"
+fi
+
+# Do not mistake an interrupted or manually removed old installation for a new
+# one. Creating a fresh key or volume here would make the existing data
+# unrecoverable through the UI. Recovery must preserve the old deployment
+# details explicitly.
+mapfile -t orphaned_volumes < <(docker volume ls --format '{{.Name}}' | grep -E "^${CONTAINER}(_${CONTAINER})?_data$" || true)
+if ((${#orphaned_volumes[@]})); then
+  die "No '$CONTAINER' container exists, but existing Nexterm data volume(s) were found: ${orphaned_volumes[*]}. Refusing a fresh install to protect the data. Restore the container first or use the documented recovery procedure."
 fi
 
 release="$(sed -nE 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$source_dir/package.json" | head -n1)"

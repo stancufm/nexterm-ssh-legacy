@@ -22,8 +22,11 @@ Options:
   --wait SECONDS          Startup validation wait (default: 20).
   -h, --help              Show this help.
 
-The script never deletes the data volume. If the replacement does not start or
-does not answer HTTP, it automatically restores the original image.
+The script never deletes the data volume. During the migration it keeps the
+original container intact under a temporary rollback name. If the replacement
+does not start, does not answer HTTP, or the script is interrupted, the
+original container is automatically restored with its original name, network
+attachments, ports, and environment.
 EOF
 }
 
@@ -118,7 +121,9 @@ docker build \
     --build-arg "SERVER_IMAGE=nexterm-nsg-server:$VERSION" \
     -t "nexterm-nsg:$VERSION" "$REPO_DIR"
 
-ROLLBACK_TAG="nexterm:rollback-pre-${VERSION}-$(date +%Y%m%d%H%M%S)"
+TIMESTAMP="$(date +%Y%m%d%H%M%S)"
+ROLLBACK_TAG="nexterm:rollback-pre-${VERSION}-${TIMESTAMP}"
+ROLLBACK_CONTAINER="${CONTAINER}-rollback-${TIMESTAMP}"
 docker tag "$OLD_IMAGE" "$ROLLBACK_TAG"
 
 run_container() {
@@ -146,31 +151,56 @@ run_container() {
     done
 }
 
+ORIGINAL_STOPPED=0
+BACKUP_CREATED=0
+RESTORING=0
+
 rollback() {
-    echo "Replacement failed; restoring $ROLLBACK_TAG..." >&2
+    (( RESTORING )) && return
+    RESTORING=1
+    trap - ERR INT TERM
+    echo "Replacement failed; restoring the original container..." >&2
     docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-    run_container "$ROLLBACK_TAG" >/dev/null
-    echo "Rollback started. Inspect: docker logs --tail 80 $CONTAINER" >&2
+    if (( BACKUP_CREATED )); then
+        docker rename "$ROLLBACK_CONTAINER" "$CONTAINER"
+        docker start "$CONTAINER" >/dev/null
+        echo "Original container restored. Inspect: docker logs --tail 80 $CONTAINER" >&2
+    elif (( ORIGINAL_STOPPED )); then
+        docker start "$CONTAINER" >/dev/null || true
+        echo "Original container restarted. Inspect: docker logs --tail 80 $CONTAINER" >&2
+    fi
 }
 
-echo "Replacing '$CONTAINER'; rollback image: $ROLLBACK_TAG"
-docker rm -f "$CONTAINER"
-if ! run_container "nexterm-nsg:$VERSION" >/dev/null; then
+on_failure() {
+    local status=$?
     rollback
-    exit 1
-fi
+    exit "$status"
+}
+
+trap on_failure ERR INT TERM
+
+echo "Replacing '$CONTAINER'; original container retained as '$ROLLBACK_CONTAINER' until validation succeeds."
+docker stop "$CONTAINER" >/dev/null
+ORIGINAL_STOPPED=1
+docker rename "$CONTAINER" "$ROLLBACK_CONTAINER"
+BACKUP_CREATED=1
+run_container "nexterm-nsg:$VERSION" >/dev/null
 
 sleep "$WAIT_SECONDS"
 if ! docker inspect "$CONTAINER" --format '{{.State.Running}}' | grep -qx true; then
+    echo "ERROR: Replacement container did not stay running." >&2
     rollback
     exit 1
 fi
 
 if [[ "$NETWORK_MODE" != "host" ]] && ! curl --fail --silent --show-error "http://127.0.0.1:${HOST_PORT}/" >/dev/null; then
+    echo "ERROR: Replacement container did not pass its local HTTP health check." >&2
     rollback
     exit 1
 fi
 
+trap - ERR INT TERM
 echo "Migration completed: nexterm-nsg:$VERSION"
+echo "Rollback container retained (stopped): $ROLLBACK_CONTAINER"
 echo "Rollback image retained: $ROLLBACK_TAG"
 docker logs --tail 40 "$CONTAINER"

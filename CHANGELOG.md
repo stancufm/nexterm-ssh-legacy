@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.2-nsg.9
+
+- Makes upgrades transactional: the previous container is kept intact under a rollback name until the replacement passes its HTTP health check.
+- Automatically restores the original container if the upgrade fails or is interrupted, preserving its exact Docker configuration and network attachments.
+- Prevents a fresh installation from overwriting the path to existing orphaned Nexterm data when a container was removed unexpectedly.
+
 ## v1.2.2-nsg.8
 
 - Documented the NSG SSH Legacy fork, its security model and deployment path.

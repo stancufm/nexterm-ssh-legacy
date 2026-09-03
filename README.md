@@ -26,6 +26,46 @@ Nexterm is an open-source server management software that allows you to:
 -   Secure access with two-factor authentication and OIDC SSO
 -   Separate users and servers into Organizations
 
+## NSG SSH Legacy fork
+
+This repository is a maintained fork of Nexterm for networks that manage both
+modern infrastructure and long-lived appliances. It retains Nexterm's current
+defaults while adding a narrowly-scoped compatibility option for devices that
+cannot negotiate current SSH cryptography.
+
+### Why this fork exists
+
+Some network appliances, serial-console servers, firewalls and legacy Linux
+systems only offer algorithms that current SSH clients deliberately disable:
+older key-exchange methods, SHA-1 based host-key signatures, legacy ciphers or
+small Diffie-Hellman groups. Standard Nexterm correctly rejects those
+connections. The result was that operators had to leave Nexterm and use a
+separate, less auditable client for those devices.
+
+The fork makes compatibility **per server and opt-in**. Modern SSH servers keep
+the upstream-secure algorithm set. For a legacy target, enable **Legacy SSH
+Compatibility** in that server's settings. The same choice is used consistently
+for interactive SSH, SFTP, automated commands and monitoring.
+
+Legacy cryptography reduces transport security. Use it only on trusted internal
+networks, restrict it to the affected targets, and replace or upgrade the
+device whenever possible. Telnet is also unencrypted; use it only where the
+network path is trusted.
+
+### Additional functionality
+
+- Telnet entries can attach an existing password identity. When attached, the
+  saved username and password are sent automatically after the Telnet session
+  opens; without an identity, Telnet remains a manual terminal session.
+- The safe migration script preserves existing data, the encryption key,
+  environment, published port, restart policy and attached Docker networks.
+  This includes networks shared with Nginx Proxy Manager.
+- The unified installer either creates a new instance or upgrades an existing
+  one, retaining a timestamped rollback image on upgrades.
+
+See [CHANGELOG.md](CHANGELOG.md) for release-by-release details and
+[installation and upgrade instructions](docs/install-or-upgrade.md).
+
 ## 📷 Screenshots
 
 <table>

@@ -318,6 +318,7 @@ static void extract_ssh_credentials(Nexterm_ControlPlane_ConnectionParam_vec_t p
     creds->password = NULL;
     creds->private_key = NULL;
     creds->passphrase = NULL;
+    creds->legacy_crypto = false;
     if (!params) return;
 
     size_t n = Nexterm_ControlPlane_ConnectionParam_vec_len(params);
@@ -330,6 +331,7 @@ static void extract_ssh_credentials(Nexterm_ControlPlane_ConnectionParam_vec_t p
         else if (strcmp(key, "password") == 0) creds->password = val;
         else if (strcmp(key, "privateKey") == 0) creds->private_key = val;
         else if (strcmp(key, "passphrase") == 0) creds->passphrase = val;
+        else if (strcmp(key, "legacyCrypto") == 0 && strcmp(val, "true") == 0) creds->legacy_crypto = true;
     }
 }
 

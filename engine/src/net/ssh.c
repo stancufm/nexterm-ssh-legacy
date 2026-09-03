@@ -444,6 +444,7 @@ typedef struct {
     char request_id[128];
     char host[256];
     uint16_t port;
+    bool legacy_crypto;
     char* username;
     char* password;
     char* private_key;
@@ -475,7 +476,7 @@ static void* exec_command_thread(void* arg) {
     jump_chain_t jump_chain = {0};
 
     if (nexterm_ssh_setup_with_jumphosts(args->host, args->port,
-            args->jump_hosts, args->jump_count, false, &ssh_sock, &ssh, &jump_chain) != 0) {
+            args->jump_hosts, args->jump_count, args->legacy_crypto, &ssh_sock, &ssh, &jump_chain) != 0) {
         nexterm_cp_send_exec_result(args->cp, args->request_id, false,
                                     NULL, NULL, -1, "Failed to connect to SSH host");
         exec_cmd_free(args);
@@ -548,6 +549,7 @@ int nexterm_ssh_exec_command(nexterm_control_plane_t* cp,
     snprintf(args->request_id, sizeof(args->request_id), "%s", request_id);
     snprintf(args->host, sizeof(args->host), "%s", host);
     args->port = port;
+    args->legacy_crypto = creds->legacy_crypto;
     args->username = strdup(creds->username ? creds->username : "");
     args->password = strdup(creds->password ? creds->password : "");
     args->private_key = strdup(creds->private_key ? creds->private_key : "");
@@ -585,6 +587,7 @@ typedef struct {
     char request_id[128];
     char host[256];
     uint16_t port;
+    bool legacy_crypto;
     char* username;
     char* password;
     char* private_key;
@@ -670,7 +673,7 @@ static void* exec_batch_thread(void* arg) {
     jump_chain_t jump_chain = {0};
 
     if (nexterm_ssh_setup_with_jumphosts(a->host, a->port,
-            a->jump_hosts, a->jump_count, false, &ssh_sock, &ssh, &jump_chain) != 0) {
+            a->jump_hosts, a->jump_count, a->legacy_crypto, &ssh_sock, &ssh, &jump_chain) != 0) {
         nexterm_cp_send_exec_batch_result(a->cp, a->request_id, false,
                                           "Failed to connect to SSH host", NULL, 0);
         exec_batch_free(a);
@@ -743,6 +746,7 @@ int nexterm_ssh_exec_batch(nexterm_control_plane_t* cp,
     snprintf(args->request_id, sizeof(args->request_id), "%s", request_id);
     snprintf(args->host, sizeof(args->host), "%s", host);
     args->port = port;
+    args->legacy_crypto = creds->legacy_crypto;
     args->username = strdup(creds->username ? creds->username : "");
     args->password = strdup(creds->password ? creds->password : "");
     args->private_key = strdup(creds->private_key ? creds->private_key : "");

@@ -36,7 +36,7 @@ const execCommand = async (accountId, entryId, identityId, command) => {
     }
 
     const credentials = await getIdentityCredentials(identity.id);
-    const params = buildSSHParams(identity, credentials);
+    const params = buildSSHParams(identity, credentials, entry.config);
     const host = entry.config?.ip;
     const port = entry.config?.port || 22;
 

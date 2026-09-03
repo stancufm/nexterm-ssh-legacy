@@ -105,7 +105,7 @@ const collectServerData = async (entry, identity, credentials) => {
         return { status: "error", timestamp: new Date(), errorMessage: "Missing host configuration" };
     }
 
-    const params = buildSSHParams(identity, credentials);
+    const params = buildSSHParams(identity, credentials, entry.config);
     const jumpHosts = await resolveJumpHosts(entry);
 
     try {

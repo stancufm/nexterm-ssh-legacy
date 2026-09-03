@@ -45,6 +45,13 @@ Nexterm is an open-source server management software that allows you to:
 
 You can install Nexterm by clicking [here](https://docs.nexterm.dev/installation).
 
+### Migrate an existing Docker AIO instance
+
+For an existing Nexterm AIO installation that already contains data, use the
+[safe migration script](docs/migrate-existing-instance.md). It preserves the
+data volume and encryption key, validates the replacement, and retains a
+rollback image.
+
 ## 💻 Development
 
 ### Prerequisites

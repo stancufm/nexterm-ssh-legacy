@@ -1,6 +1,6 @@
 {
   "name": "nexterm",
-  "version": "1.2.2-nsg.3",
+  "version": "1.2.2-nsg.4",
   "main": "server/index.js",
   "bin": {
     "ntctl": "server/cli/index.js"

@@ -1,6 +1,6 @@
 # Migrating an existing Nexterm AIO instance
 
-This script migrates a Docker-based Nexterm AIO instance to Nexterm SSH Legacy while retaining the existing `/app/data` volume, encryption key, published port, restart policy, and environment.
+This script migrates a Docker-based Nexterm AIO instance to Nexterm SSH Legacy while retaining the existing `/app/data` volume, encryption key, published port, restart policy, environment, and Docker networks. This includes a shared Nginx Proxy Manager network, so proxy hosts that forward to `nexterm:6989` continue to work.
 
 It builds the release locally before changing the running container. A timestamped rollback image is retained, and the script automatically restores it if the replacement fails its startup check. It never removes the data volume.
 
@@ -20,7 +20,7 @@ project=stancufm/nexterm-ssh-legacy.git
 remote="https://$host/$project"
 src=$(mktemp -d /opt/nexterm-nsg.XXXXXX)
 
-GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch v1.2.2-nsg.4 "$remote" "$src"
+GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch v1.2.2-nsg.5 "$remote" "$src"
 cd "$src"
 ./scripts/migrate-existing-aio.sh --apply
 ```

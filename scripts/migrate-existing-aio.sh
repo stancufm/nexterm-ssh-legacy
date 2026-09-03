@@ -67,6 +67,7 @@ OLD_IMAGE="$(docker inspect "$CONTAINER" --format '{{.Config.Image}}')"
 RESTART_POLICY="$(docker inspect "$CONTAINER" --format '{{.HostConfig.RestartPolicy.Name}}')"
 [[ -n "$RESTART_POLICY" && "$RESTART_POLICY" != "no" ]] || RESTART_POLICY="unless-stopped"
 NETWORK_MODE="$(docker inspect "$CONTAINER" --format '{{.HostConfig.NetworkMode}}')"
+mapfile -t EXISTING_NETWORKS < <(docker inspect "$CONTAINER" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}')
 MOUNT_INFO="$(docker inspect "$CONTAINER" --format '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{printf "%s|%s|%s" .Type .Name .Source}}{{end}}{{end}}')"
 [[ -n "$MOUNT_INFO" ]] || die "Could not find the /app/data mount on '$CONTAINER'."
 
@@ -122,15 +123,27 @@ docker tag "$OLD_IMAGE" "$ROLLBACK_TAG"
 
 run_container() {
     local image="$1"
+    local primary_network=""
     local -a args=(--name "$CONTAINER" --restart "$RESTART_POLICY" --volume "$DATA_MOUNT")
     args+=("${RUN_ENVS[@]}" --env "ENCRYPTION_KEY=$ENCRYPTION_KEY")
     if [[ "$NETWORK_MODE" == "host" ]]; then
         args+=(--network host)
     else
         args+=(--publish "${HOST_PORT}:6989")
-        [[ "$NETWORK_MODE" == "default" || "$NETWORK_MODE" == "bridge" ]] || args+=(--network "$NETWORK_MODE")
+        if [[ "$NETWORK_MODE" != "default" && "$NETWORK_MODE" != "bridge" ]]; then
+            primary_network="$NETWORK_MODE"
+            args+=(--network "$primary_network")
+        fi
     fi
     docker run -d "${args[@]}" "$image"
+
+    # AIO containers are often additionally attached to the Nginx Proxy Manager
+    # network so reverse proxies can reach the hostname "nexterm". Docker run
+    # only accepts one primary network, therefore reattach every other network.
+    for network in "${EXISTING_NETWORKS[@]}"; do
+        [[ "$network" == "bridge" || "$network" == "default" || "$network" == "$primary_network" ]] && continue
+        docker network connect "$network" "$CONTAINER"
+    done
 }
 
 rollback() {

@@ -52,6 +52,9 @@ For an existing Nexterm AIO installation that already contains data, use the
 data volume and encryption key, validates the replacement, and retains a
 rollback image.
 
+For a new installation or an automated upgrade, use the [install-or-upgrade
+script](docs/install-or-upgrade.md).
+
 ## 💻 Development
 
 ### Prerequisites

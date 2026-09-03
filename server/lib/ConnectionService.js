@@ -48,15 +48,45 @@ const buildSSHParams = (identity, credentials, serverConfig = null) => {
     return params;
 };
 
-// Telnet has no authentication handshake. When an identity is attached, the
-// engine receives its username/password and writes them to the terminal stream
-// after connecting. Entries without an identity remain manual Telnet sessions.
-const buildTelnetParams = (identity, credentials) => {
+// Telnet has no authentication handshake. Credentials are sent only after the
+// explicitly configured prompts appear in the terminal stream. Entries without
+// prompts (or without an identity) remain manual Telnet sessions.
+const buildTelnetParams = (identity, credentials, serverConfig = null) => {
     if (!identity) return {};
 
     const params = { username: identity.username || credentials.username || "" };
     if (credentials.password) params.password = credentials.password;
+    const usernamePrompt = serverConfig?.telnetUsernamePrompt?.trim();
+    const passwordPrompt = serverConfig?.telnetPasswordPrompt?.trim();
+    if (usernamePrompt) params.usernamePrompt = usernamePrompt;
+    if (passwordPrompt) params.passwordPrompt = passwordPrompt;
     return params;
+};
+
+const createTelnetPromptLoginHandler = (dataSocket, params, context) => {
+    if (!params.username || !params.password || !params.usernamePrompt || !params.passwordPrompt) return null;
+
+    let buffer = "";
+    let state = "username";
+    const { sessionId, ip, port } = context;
+
+    return (data) => {
+        if (state === "complete") return;
+        buffer = `${buffer}${data.toString()}`.slice(-8192);
+
+        if (state === "username" && buffer.includes(params.usernamePrompt)) {
+            dataSocket.write(`${params.username}\r\n`);
+            state = "password";
+            logger.info("Telnet username prompt matched", { sessionId, target: ip, port });
+            return;
+        }
+
+        if (state === "password" && buffer.includes(params.passwordPrompt)) {
+            dataSocket.write(`${params.password}\r\n`);
+            state = "complete";
+            logger.info("Telnet password prompt matched", { sessionId, target: ip, port });
+        }
+    };
 };
 
 const extractIdentity = (identityResult) => {
@@ -329,14 +359,18 @@ const createTelnetConnectionForSession = async (sessionId, entry, identity, orga
     if (!ip) throw new Error("Missing host configuration");
 
     const credentials = identity ? await resolveCredentials(identity) : {};
-    const params = buildTelnetParams(identity, credentials);
+    const params = buildTelnetParams(identity, credentials, entry.config);
     const dataSocket = await openEngineSession(
         sessionId, SessionType.Telnet, ip, port, params, entry.config?.engineId
     );
 
     await SessionManager.initRecording(sessionId, organizationId);
 
-    dataSocket.on("data", (data) => SessionManager.appendLog(sessionId, data.toString()));
+    const promptLoginHandler = createTelnetPromptLoginHandler(dataSocket, params, { sessionId, ip, port });
+    dataSocket.on("data", (data) => {
+        SessionManager.appendLog(sessionId, data.toString());
+        promptLoginHandler?.(data);
+    });
     dataSocket.on("close", () => {
         logger.info("Telnet data connection closed", { sessionId });
         SessionManager.remove(sessionId);
@@ -354,14 +388,12 @@ const createTelnetConnectionForSession = async (sessionId, entry, identity, orga
         auditLogId: session.auditLogId,
     });
 
-    // Telnet endpoints commonly buffer input until their login prompt appears,
-    // so send both lines once the engine has connected. Do not log credentials.
-    if (params.username && params.password) {
-        dataSocket.write(`${params.username}\r\n${params.password}\r\n`);
-        logger.info("Telnet login credentials sent", { sessionId, target: ip, port });
-    }
-
-    logger.info("Telnet connected", { sessionId, ip, port, autoLogin: Boolean(params.username && params.password) });
+    logger.info("Telnet connected", {
+        sessionId,
+        ip,
+        port,
+        autoLogin: Boolean(promptLoginHandler),
+    });
     return { success: true };
 }
 
@@ -502,5 +534,6 @@ module.exports = {
     getSessionPassword,
     buildSSHParams,
     buildTelnetParams,
+    createTelnetPromptLoginHandler,
     resolveJumpHosts,
 };

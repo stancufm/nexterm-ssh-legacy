@@ -2,7 +2,7 @@
 # Install or upgrade Nexterm SSH Legacy from a tagged public release.
 set -Eeuo pipefail
 
-VERSION="v1.2.2-nsg.9"
+VERSION="v1.2.2-nsg.10"
 CONTAINER="nexterm"
 PORT="6989"
 NETWORK="bridge"

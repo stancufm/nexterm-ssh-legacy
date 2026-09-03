@@ -153,6 +153,11 @@ export const ServerDialog = ({ open, onClose, currentFolderId, currentOrganizati
             delete finalConfig.enableLegacyCrypto;
         }
 
+        if (config.protocol !== "telnet") {
+            delete finalConfig.telnetUsernamePrompt;
+            delete finalConfig.telnetPasswordPrompt;
+        }
+
         return finalConfig;
     };
 

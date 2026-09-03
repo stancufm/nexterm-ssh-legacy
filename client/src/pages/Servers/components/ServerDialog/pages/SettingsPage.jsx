@@ -88,6 +88,8 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
     const [backspaceMode, setBackspaceMode] = useState(config?.backspaceMode || "del");
     const [deleteMode, setDeleteMode] = useState(config?.deleteMode || "vt");
     const [functionKeyMode, setFunctionKeyMode] = useState(config?.functionKeyMode || "xterm");
+    const [telnetUsernamePrompt, setTelnetUsernamePrompt] = useState(config?.telnetUsernamePrompt || "");
+    const [telnetPasswordPrompt, setTelnetPasswordPrompt] = useState(config?.telnetPasswordPrompt || "");
 
     const handleKeyboardLayoutChange = (newLayout) => {
         setKeyboardLayout(newLayout);
@@ -119,6 +121,8 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
         if (config?.deleteMode !== undefined) setDeleteMode(config.deleteMode);
         if (config?.functionKeyMode !== undefined) setFunctionKeyMode(config.functionKeyMode);
         if (config?.enableLegacyCrypto !== undefined) setEnableLegacyCrypto(config.enableLegacyCrypto === true);
+        if (config?.telnetUsernamePrompt !== undefined) setTelnetUsernamePrompt(config.telnetUsernamePrompt || "");
+        if (config?.telnetPasswordPrompt !== undefined) setTelnetPasswordPrompt(config.telnetPasswordPrompt || "");
     }, [config]);
 
     useEffect(() => {
@@ -239,6 +243,41 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                             {t('servers.dialog.settings.jumpHosts.noServersAvailable')}
                         </p>
                     )}
+                </div>
+            )}
+
+            {config?.protocol === "telnet" && (
+                <div className="jump-hosts-section">
+                    <div className="jump-hosts-header">
+                        <div className="jump-hosts-info">
+                            <span className="jump-hosts-label">Telnet automatic login</span>
+                            <span className="jump-hosts-description">
+                                To use the attached identity, enter the exact username and password prompts emitted by the device. Leave both empty for a manual session. Telnet transmits credentials unencrypted.
+                            </span>
+                        </div>
+                    </div>
+                    <div className="terminal-settings-grid">
+                        <div className="form-group">
+                            <label>Username prompt</label>
+                            <input
+                                type="text"
+                                value={telnetUsernamePrompt}
+                                onChange={(event) => handleDisplaySettingChange("telnetUsernamePrompt", event.target.value, setTelnetUsernamePrompt)}
+                                placeholder="login:"
+                                autoComplete="off"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Password prompt</label>
+                            <input
+                                type="text"
+                                value={telnetPasswordPrompt}
+                                onChange={(event) => handleDisplaySettingChange("telnetPasswordPrompt", event.target.value, setTelnetPasswordPrompt)}
+                                placeholder="Password:"
+                                autoComplete="off"
+                            />
+                        </div>
+                    </div>
                 </div>
             )}
 

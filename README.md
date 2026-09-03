@@ -54,9 +54,11 @@ network path is trusted.
 
 ### Additional functionality
 
-- Telnet entries can attach an existing password identity. When attached, the
-  saved username and password are sent automatically after the Telnet session
-  opens; without an identity, Telnet remains a manual terminal session.
+- Telnet entries can attach an existing password identity. Automatic login is
+  deliberately opt-in: configure the exact username and password prompts
+  emitted by the device, then Nexterm sends each saved value only after its
+  matching prompt appears. With no configured prompts or no identity, Telnet
+  remains a manual terminal session.
 - The safe migration script preserves existing data, the encryption key,
   environment, published port, restart policy and attached Docker networks.
   This includes networks shared with Nginx Proxy Manager.

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.2-nsg.10
+
+- Adds optional, per-server Telnet username and password prompt recognition for automatic login with an attached saved identity.
+- Sends credentials sequentially only after their configured prompt appears; when prompts are omitted, Telnet remains a manual session.
+- Keeps credential values out of application logs and documents the plaintext nature of Telnet.
+
 ## v1.2.2-nsg.9
 
 - Makes upgrades transactional: the previous container is kept intact under a rollback name until the replacement passes its HTTP health check.

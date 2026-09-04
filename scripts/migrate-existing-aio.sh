@@ -117,12 +117,18 @@ fi
 [[ -n "$ENCRYPTION_KEY" ]] || die "ENCRYPTION_KEY is missing from the container and /opt/nexterm configuration files."
 
 echo "Building Nexterm SSH Legacy $VERSION before changing '$CONTAINER'..."
-docker build -f "$REPO_DIR/Dockerfile.engine" -t "nexterm-nsg-engine:$VERSION" "$REPO_DIR"
+docker build --build-arg "VERSION=$VERSION" -f "$REPO_DIR/Dockerfile.engine" -t "nexterm-nsg-engine:$VERSION" "$REPO_DIR"
 docker build --build-arg "VERSION=$VERSION" -f "$REPO_DIR/Dockerfile.server" -t "nexterm-nsg-server:$VERSION" "$REPO_DIR"
 docker build \
     --build-arg "ENGINE_IMAGE=nexterm-nsg-engine:$VERSION" \
     --build-arg "SERVER_IMAGE=nexterm-nsg-server:$VERSION" \
     -t "nexterm-nsg:$VERSION" "$REPO_DIR"
+
+# The control plane requires an exact server/engine version match. Verify the
+# engine metadata before the old container is stopped, so a failed build can
+# never replace a working deployment.
+ENGINE_VERSION="$(docker run --rm --entrypoint /usr/local/bin/nexterm-engine "nexterm-nsg-engine:$VERSION" --help | sed -nE 's/^Nexterm Engine v([^[:space:]]+).*/\1/p' | head -n1)"
+[[ "$ENGINE_VERSION" == "$VERSION" ]] || die "Built engine version '$ENGINE_VERSION' does not match server version '$VERSION'."
 
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 ROLLBACK_TAG="nexterm:rollback-pre-${VERSION}-${TIMESTAMP}"

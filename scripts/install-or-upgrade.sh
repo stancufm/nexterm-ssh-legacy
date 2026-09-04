@@ -2,7 +2,7 @@
 # Install or upgrade Nexterm SSH Legacy from a tagged public release.
 set -Eeuo pipefail
 
-VERSION="v1.2.2-nsg.12"
+VERSION="v1.2.2-nsg.13"
 CONTAINER="nexterm"
 PORT="6989"
 NETWORK="bridge"
@@ -46,9 +46,12 @@ fi
 release="$(sed -nE 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$source_dir/package.json" | head -n1)"
 [[ -n "$release" ]] || die "Could not read release version."
 
-docker build -f "$source_dir/Dockerfile.engine" -t "nexterm-nsg-engine:$release" "$source_dir"
+docker build --build-arg "VERSION=$release" -f "$source_dir/Dockerfile.engine" -t "nexterm-nsg-engine:$release" "$source_dir"
 docker build --build-arg "VERSION=$release" -f "$source_dir/Dockerfile.server" -t "nexterm-nsg-server:$release" "$source_dir"
 docker build --build-arg "ENGINE_IMAGE=nexterm-nsg-engine:$release" --build-arg "SERVER_IMAGE=nexterm-nsg-server:$release" -t "nexterm-nsg:$release" "$source_dir"
+
+engine_version="$(docker run --rm --entrypoint /usr/local/bin/nexterm-engine "nexterm-nsg-engine:$release" --help | sed -nE 's/^Nexterm Engine v([^[:space:]]+).*/\1/p' | head -n1)"
+[[ "$engine_version" == "$release" ]] || die "Built engine version '$engine_version' does not match server version '$release'."
 
 install_dir=/opt/nexterm
 install -d -m 700 "$install_dir"

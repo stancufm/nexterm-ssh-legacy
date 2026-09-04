@@ -154,6 +154,7 @@ export const ServerDialog = ({ open, onClose, currentFolderId, currentOrganizati
         }
 
         if (config.protocol !== "telnet") {
+            delete finalConfig.telnetAutoLogin;
             delete finalConfig.telnetUsernamePrompt;
             delete finalConfig.telnetPasswordPrompt;
         }

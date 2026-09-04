@@ -88,6 +88,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
     const [backspaceMode, setBackspaceMode] = useState(config?.backspaceMode || "del");
     const [deleteMode, setDeleteMode] = useState(config?.deleteMode || "vt");
     const [functionKeyMode, setFunctionKeyMode] = useState(config?.functionKeyMode || "xterm");
+    const [telnetAutoLogin, setTelnetAutoLogin] = useState(config?.telnetAutoLogin === true);
     const [telnetUsernamePrompt, setTelnetUsernamePrompt] = useState(config?.telnetUsernamePrompt || "");
     const [telnetPasswordPrompt, setTelnetPasswordPrompt] = useState(config?.telnetPasswordPrompt || "");
 
@@ -99,6 +100,25 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
     const handleDisplaySettingChange = (key, value, setter) => {
         setter(value);
         setConfig(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleTelnetAutoLoginChange = (enabled) => {
+        setTelnetAutoLogin(enabled);
+        if (!enabled) {
+            setConfig(prev => ({ ...prev, telnetAutoLogin: false }));
+            return;
+        }
+
+        const usernamePrompt = telnetUsernamePrompt || "login:";
+        const passwordPrompt = telnetPasswordPrompt || "Password:";
+        setTelnetUsernamePrompt(usernamePrompt);
+        setTelnetPasswordPrompt(passwordPrompt);
+        setConfig(prev => ({
+            ...prev,
+            telnetAutoLogin: true,
+            telnetUsernamePrompt: usernamePrompt,
+            telnetPasswordPrompt: passwordPrompt,
+        }));
     };
 
     useEffect(() => {
@@ -121,6 +141,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
         if (config?.deleteMode !== undefined) setDeleteMode(config.deleteMode);
         if (config?.functionKeyMode !== undefined) setFunctionKeyMode(config.functionKeyMode);
         if (config?.enableLegacyCrypto !== undefined) setEnableLegacyCrypto(config.enableLegacyCrypto === true);
+        if (config?.telnetAutoLogin !== undefined) setTelnetAutoLogin(config.telnetAutoLogin === true);
         if (config?.telnetUsernamePrompt !== undefined) setTelnetUsernamePrompt(config.telnetUsernamePrompt || "");
         if (config?.telnetPasswordPrompt !== undefined) setTelnetPasswordPrompt(config.telnetPasswordPrompt || "");
     }, [config]);
@@ -252,9 +273,20 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                         <div className="jump-hosts-info">
                             <span className="jump-hosts-label">Telnet automatic login</span>
                             <span className="jump-hosts-description">
-                                To use the attached identity, enter the exact username and password prompts emitted by the device. Leave both empty for a manual session. Telnet transmits credentials unencrypted.
+                                Enable only for trusted networks. Telnet transmits credentials unencrypted; when enabled, the saved identity is sent only after both prompts are detected.
                             </span>
                         </div>
+                    </div>
+                    <div className="settings-toggle">
+                        <div className="settings-toggle-info">
+                            <span className="settings-toggle-label">Enable automatic login</span>
+                            <span className="settings-toggle-description">Defaults to common prompts; adjust them below if the device uses different text.</span>
+                        </div>
+                        <ToggleSwitch
+                            checked={telnetAutoLogin}
+                            onChange={handleTelnetAutoLoginChange}
+                            id="telnet-auto-login-toggle"
+                        />
                     </div>
                     <div className="terminal-settings-grid">
                         <div className="form-group">
@@ -265,6 +297,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                                 onChange={(event) => handleDisplaySettingChange("telnetUsernamePrompt", event.target.value, setTelnetUsernamePrompt)}
                                 placeholder="login:"
                                 autoComplete="off"
+                                disabled={!telnetAutoLogin}
                             />
                         </div>
                         <div className="form-group">
@@ -275,6 +308,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                                 onChange={(event) => handleDisplaySettingChange("telnetPasswordPrompt", event.target.value, setTelnetPasswordPrompt)}
                                 placeholder="Password:"
                                 autoComplete="off"
+                                disabled={!telnetAutoLogin}
                             />
                         </div>
                     </div>

@@ -52,7 +52,9 @@ const buildSSHParams = (identity, credentials, serverConfig = null) => {
 // explicitly configured prompts appear in the terminal stream. Entries without
 // prompts (or without an identity) remain manual Telnet sessions.
 const buildTelnetParams = (identity, credentials, serverConfig = null) => {
-    if (!identity) return {};
+    // Telnet credentials travel unencrypted. Never send them merely because an
+    // identity happens to be attached: each server must opt in explicitly.
+    if (!identity || serverConfig?.telnetAutoLogin !== true) return {};
 
     const params = { username: identity.username || credentials.username || "" };
     if (credentials.password) params.password = credentials.password;

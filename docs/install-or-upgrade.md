@@ -4,7 +4,7 @@ Docker, Git and OpenSSL must be installed. Run `sudo -i` first, then download an
 
 ```bash
 host=raw.githubusercontent.com
-path=stancufm/nexterm-ssh-legacy/v1.2.2-nsg.11/scripts/install-or-upgrade.sh
+path=stancufm/nexterm-ssh-legacy/v1.2.2-nsg.12/scripts/install-or-upgrade.sh
 curl -fsS "https://$host/$path" -o /tmp/nexterm-nsg.sh
 bash /tmp/nexterm-nsg.sh
 ```

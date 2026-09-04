@@ -149,6 +149,10 @@ run_container() {
     # network so reverse proxies can reach the hostname "nexterm". Docker run
     # only accepts one primary network, therefore reattach every other network.
     for network in "${EXISTING_NETWORKS[@]}"; do
+        # Docker's template output can contain a trailing empty entry. Passing
+        # that to `docker network connect` produces "network name or ID is
+        # empty" and would unnecessarily trigger the rollback path.
+        [[ -n "$network" ]] || continue
         [[ "$network" == "bridge" || "$network" == "default" || "$network" == "$primary_network" ]] && continue
         docker network connect "$network" "$CONTAINER"
     done

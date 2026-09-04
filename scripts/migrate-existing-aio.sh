@@ -90,6 +90,9 @@ mapfile -t CURRENT_ENVS < <(docker inspect "$CONTAINER" --format '{{range .Confi
 RUN_ENVS=()
 ENCRYPTION_KEY=""
 for item in "${CURRENT_ENVS[@]}"; do
+    # Docker can return an empty environment entry. Passing it through as
+    # `--env ""` makes `docker run` reject the replacement container.
+    [[ -n "$item" ]] || continue
     if [[ "$item" == ENCRYPTION_KEY=* ]]; then
         ENCRYPTION_KEY="${item#ENCRYPTION_KEY=}"
     else

@@ -49,8 +49,10 @@ const buildSSHParams = (identity, credentials, serverConfig = null) => {
 };
 
 // Telnet has no authentication handshake. Credentials are sent only after the
-// explicitly configured prompts appear in the terminal stream. Entries without
-// prompts (or without an identity) remain manual Telnet sessions.
+// explicitly configured prompts appear in the terminal stream. A device may
+// ask for both credentials or only a password; either configured prompt is
+// sufficient. Entries without a usable prompt (or without an identity) remain
+// manual Telnet sessions.
 const buildTelnetParams = (identity, credentials, serverConfig = null) => {
     // Telnet credentials travel unencrypted. Never send them merely because an
     // identity happens to be attached: each server must opt in explicitly.
@@ -66,26 +68,29 @@ const buildTelnetParams = (identity, credentials, serverConfig = null) => {
 };
 
 const createTelnetPromptLoginHandler = (dataSocket, params, context) => {
-    if (!params.username || !params.password || !params.usernamePrompt || !params.passwordPrompt) return null;
+    const shouldSendUsername = Boolean(params.username && params.usernamePrompt);
+    const shouldSendPassword = Boolean(params.password && params.passwordPrompt);
+    if (!shouldSendUsername && !shouldSendPassword) return null;
 
     let buffer = "";
-    let state = "username";
+    let usernameSent = !shouldSendUsername;
+    let passwordSent = !shouldSendPassword;
     const { sessionId, ip, port } = context;
 
     return (data) => {
-        if (state === "complete") return;
+        if (usernameSent && passwordSent) return;
         buffer = `${buffer}${data.toString()}`.slice(-8192);
 
-        if (state === "username" && buffer.includes(params.usernamePrompt)) {
+        if (!usernameSent && buffer.includes(params.usernamePrompt)) {
             dataSocket.write(`${params.username}\r\n`);
-            state = "password";
+            usernameSent = true;
             logger.info("Telnet username prompt matched", { sessionId, target: ip, port });
             return;
         }
 
-        if (state === "password" && buffer.includes(params.passwordPrompt)) {
+        if (!passwordSent && usernameSent && buffer.includes(params.passwordPrompt)) {
             dataSocket.write(`${params.password}\r\n`);
-            state = "complete";
+            passwordSent = true;
             logger.info("Telnet password prompt matched", { sessionId, target: ip, port });
         }
     };

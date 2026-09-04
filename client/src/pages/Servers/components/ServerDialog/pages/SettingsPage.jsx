@@ -109,7 +109,9 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
             return;
         }
 
-        const usernamePrompt = telnetUsernamePrompt || "login:";
+        // Do not invent a username prompt: some Telnet devices authenticate
+        // with a password only. The password prompt has a safe common default.
+        const usernamePrompt = telnetUsernamePrompt;
         const passwordPrompt = telnetPasswordPrompt || "Password:";
         setTelnetUsernamePrompt(usernamePrompt);
         setTelnetPasswordPrompt(passwordPrompt);
@@ -273,14 +275,14 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                         <div className="jump-hosts-info">
                             <span className="jump-hosts-label">Telnet automatic login</span>
                             <span className="jump-hosts-description">
-                                Enable only for trusted networks. Telnet transmits credentials unencrypted; when enabled, the saved identity is sent only after both prompts are detected.
+                                Enable only for trusted networks. Telnet transmits credentials unencrypted; the saved identity is sent only when a configured prompt is detected. Leave the username prompt empty for password-only devices.
                             </span>
                         </div>
                     </div>
                     <div className="settings-toggle">
                         <div className="settings-toggle-info">
                             <span className="settings-toggle-label">Enable automatic login</span>
-                            <span className="settings-toggle-description">Defaults to common prompts; adjust them below if the device uses different text.</span>
+                            <span className="settings-toggle-description">Use the exact text displayed by the device. Password-only devices need only a password prompt.</span>
                         </div>
                         <ToggleSwitch
                             checked={telnetAutoLogin}
@@ -290,7 +292,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                     </div>
                     <div className="terminal-settings-grid">
                         <div className="form-group">
-                            <label>Username prompt</label>
+                            <label>Username prompt (optional)</label>
                             <input
                                 type="text"
                                 value={telnetUsernamePrompt}

@@ -20,7 +20,7 @@ project=stancufm/nexterm-ssh-legacy.git
 remote="https://$host/$project"
 src=$(mktemp -d /opt/nexterm-nsg.XXXXXX)
 
-GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch v1.2.2-nsg.5 "$remote" "$src"
+GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch v1.2.2-nsg.15 "$remote" "$src"
 cd "$src"
 ./scripts/migrate-existing-aio.sh --apply
 ```

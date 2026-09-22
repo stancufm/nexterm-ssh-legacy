@@ -81,9 +81,11 @@ else
     DATA_MOUNT="${MOUNT_SOURCE}:/app/data"
 fi
 
-HOST_PORT="$(docker port "$CONTAINER" 6989/tcp 2>/dev/null | head -n1 | sed -nE 's/.*:([0-9]+)$/\1/p')"
-if [[ "$NETWORK_MODE" != "host" && -z "$HOST_PORT" ]]; then
-    die "Could not determine the published port for 6989/tcp. Use a standard AIO container or adapt the script."
+if [[ "$NETWORK_MODE" == "host" ]]; then
+    HOST_PORT=6989
+else
+    HOST_PORT="$(docker port "$CONTAINER" 6989/tcp 2>/dev/null | head -n1 | sed -nE 's/.*:([0-9]+)$/\1/p')"
+    [[ -n "$HOST_PORT" ]] || die "Could not determine the published port for 6989/tcp. Use a standard AIO container or adapt the script."
 fi
 
 mapfile -t CURRENT_ENVS < <(docker inspect "$CONTAINER" --format '{{range .Config.Env}}{{println .}}{{end}}')
@@ -133,12 +135,18 @@ ENGINE_VERSION="$(docker run --rm --entrypoint /usr/local/bin/nexterm-engine "ne
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 ROLLBACK_TAG="nexterm:rollback-pre-${VERSION}-${TIMESTAMP}"
 ROLLBACK_CONTAINER="${CONTAINER}-rollback-${TIMESTAMP}"
+NEW_CONTAINER="$CONTAINER"
+# Docker keeps a stopped host-network container's endpoint name reserved even
+# after renaming it. Start under a temporary name, then rename after validation.
+if [[ "$NETWORK_MODE" == "host" ]]; then
+    NEW_CONTAINER="${CONTAINER}-candidate-${TIMESTAMP}"
+fi
 docker tag "$OLD_IMAGE" "$ROLLBACK_TAG"
 
 run_container() {
     local image="$1"
     local primary_network=""
-    local -a args=(--name "$CONTAINER" --restart "$RESTART_POLICY" --volume "$DATA_MOUNT")
+    local -a args=(--name "$NEW_CONTAINER" --restart "$RESTART_POLICY" --volume "$DATA_MOUNT")
     args+=("${RUN_ENVS[@]}" --env "ENCRYPTION_KEY=$ENCRYPTION_KEY")
     if [[ "$NETWORK_MODE" == "host" ]]; then
         args+=(--network host)
@@ -159,8 +167,8 @@ run_container() {
         # that to `docker network connect` produces "network name or ID is
         # empty" and would unnecessarily trigger the rollback path.
         [[ -n "$network" ]] || continue
-        [[ "$network" == "bridge" || "$network" == "default" || "$network" == "$primary_network" ]] && continue
-        docker network connect "$network" "$CONTAINER"
+        [[ "$network" == "bridge" || "$network" == "default" || "$network" == "host" || "$network" == "$primary_network" ]] && continue
+        docker network connect "$network" "$NEW_CONTAINER"
     done
 }
 
@@ -173,7 +181,10 @@ rollback() {
     RESTORING=1
     trap - ERR INT TERM
     echo "Replacement failed; restoring the original container..." >&2
-    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+    docker rm -f "$NEW_CONTAINER" >/dev/null 2>&1 || true
+    if (( BACKUP_CREATED )) && [[ "$NEW_CONTAINER" != "$CONTAINER" ]]; then
+        docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+    fi
     if (( BACKUP_CREATED )); then
         docker rename "$ROLLBACK_CONTAINER" "$CONTAINER"
         docker start "$CONTAINER" >/dev/null
@@ -200,16 +211,20 @@ BACKUP_CREATED=1
 run_container "nexterm-nsg:$VERSION" >/dev/null
 
 sleep "$WAIT_SECONDS"
-if ! docker inspect "$CONTAINER" --format '{{.State.Running}}' | grep -qx true; then
+if ! docker inspect "$NEW_CONTAINER" --format '{{.State.Running}}' | grep -qx true; then
     echo "ERROR: Replacement container did not stay running." >&2
     rollback
     exit 1
 fi
 
-if [[ "$NETWORK_MODE" != "host" ]] && ! curl --fail --silent --show-error "http://127.0.0.1:${HOST_PORT}/" >/dev/null; then
+if ! curl --fail --silent --show-error "http://127.0.0.1:${HOST_PORT}/" >/dev/null; then
     echo "ERROR: Replacement container did not pass its local HTTP health check." >&2
     rollback
     exit 1
+fi
+
+if [[ "$NEW_CONTAINER" != "$CONTAINER" ]]; then
+    docker rename "$NEW_CONTAINER" "$CONTAINER"
 fi
 
 trap - ERR INT TERM

@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.2-nsg.15
+
+- Adds an explicit per-server Telnet automatic-login switch; existing servers remain manual until enabled.
+- Supports Telnet devices that request only a password. Leave the username prompt empty and configure the exact password prompt.
+- Corrects migration of Docker containers using host networking and validates their HTTP endpoint after replacement.
+
+## v1.2.2-nsg.13
+
+- Aligns the server and local engine release versions, so the control plane accepts the engine after an upgrade.
+
 ## v1.2.2-nsg.10
 
 - Adds optional, per-server Telnet username and password prompt recognition for automatic login with an attached saved identity.

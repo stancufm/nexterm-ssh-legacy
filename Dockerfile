@@ -9,7 +9,10 @@ RUN apk add --no-cache \
     pango libwebp openssl \
     libpulse libvorbis libogg libssh2 \
     libvncserver freerdp-libs libcurl \
-    util-linux samba-client
+    util-linux samba-client brotli-libs
+
+COPY scripts/verify-brotli-security.sh /tmp/verify-brotli-security.sh
+RUN sh /tmp/verify-brotli-security.sh && rm /tmp/verify-brotli-security.sh
 
 COPY --from=engine /usr/local/lib/ /usr/local/lib/
 

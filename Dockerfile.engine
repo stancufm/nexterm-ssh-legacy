@@ -36,7 +36,10 @@ RUN apk add --no-cache \
     cairo jpeg libpng ossp-uuid libuuid \
     pango libwebp openssl \
     libpulse libvorbis libogg libssh2 \
-    libvncserver freerdp-libs libcurl
+    libvncserver freerdp-libs libcurl brotli-libs
+
+COPY scripts/verify-brotli-security.sh /tmp/verify-brotli-security.sh
+RUN sh /tmp/verify-brotli-security.sh && rm /tmp/verify-brotli-security.sh
 
 COPY --from=guac-builder /src/vendor/guacamole-server/dist/lib/ /usr/local/lib/
 

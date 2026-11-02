@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.2-nsg.16
+
+- Builds the server with the pinned Node 26.13.0 runtime and requires patched Brotli packages in engine images and native release builds.
+- Adds isolated CI validation for server, engine, aggregate image, and native engine archive.
+
 ## v1.2.2-nsg.15
 
 - Adds an explicit per-server Telnet automatic-login switch; existing servers remain manual until enabled.

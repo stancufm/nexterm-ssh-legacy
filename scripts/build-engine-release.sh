@@ -145,6 +145,7 @@ collect_deps_into() {
 }
 
 package() {
+    sh "$REPO_ROOT/scripts/verify-brotli-security.sh"
     rm -rf "$OUT_DIR"
     STAGE="$OUT_DIR/nexterm-engine-linux-$ARCH"
     mkdir -p "$STAGE/lib"
@@ -183,6 +184,7 @@ package() {
 }
 
 pkg() {
+    sh "$REPO_ROOT/scripts/verify-brotli-security.sh"
     : "${PKG_VERSION:?PKG_VERSION must be set (e.g. 1.2.3)}"
     PKG_ARCH="${PKG_ARCH:-amd64}"
     export PKG_VERSION PKG_ARCH

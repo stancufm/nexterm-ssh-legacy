@@ -6,6 +6,8 @@ on:
 
 jobs:
   create-release:
+    # NSG fork releases are published separately; do not push upstream Docker tags.
+    if: ${{ !contains(github.ref_name, '-nsg.') }}
     name: "Create Release"
     runs-on: ubuntu-latest
     outputs:

@@ -37,6 +37,7 @@ jobs:
         run: |
           sed -i 's/^#define NEXTERM_ENGINE_VERSION ".*"/#define NEXTERM_ENGINE_VERSION "1.2.2-nsg.16"/' engine/src/proto/control_plane.h
           docker run --rm -v "$PWD":/work -w /work -e ARCH=x64 debian:bookworm-slim sh scripts/build-engine-release.sh all
+          sudo chown -R "$(id -u):$(id -g)" dist
           tar -tzf dist/nexterm-engine-linux-x64.tar.gz | grep 'libbrotlidec.so.1'
           sha256sum dist/nexterm-engine-linux-x64.tar.gz > dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4

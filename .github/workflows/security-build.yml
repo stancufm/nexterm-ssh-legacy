@@ -22,7 +22,7 @@ jobs:
         run: |
           docker build --pull --no-cache -f Dockerfile.server --build-arg VERSION=1.2.2-nsg.16 -t nexterm-server:security .
           docker build --pull --no-cache -f Dockerfile.engine --build-arg VERSION=1.2.2-nsg.16 -t nexterm-engine:security .
-          docker build --pull --no-cache -f Dockerfile --build-arg SERVER_IMAGE=nexterm-server:security --build-arg ENGINE_IMAGE=nexterm-engine:security -t nexterm-aio:security .
+          docker build --no-cache -f Dockerfile --build-arg SERVER_IMAGE=nexterm-server:security --build-arg ENGINE_IMAGE=nexterm-engine:security -t nexterm-aio:security .
       - name: Validate runtime and native modules
         run: |
           sh scripts/verify-server-image.sh nexterm-server:security

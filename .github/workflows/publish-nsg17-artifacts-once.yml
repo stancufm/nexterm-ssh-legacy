@@ -1,0 +1,28 @@
+name: Publish verified NSG 17 artifacts once
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: ['nsg/legacy-crypto']
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/publish-nsg17-artifacts-once'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and verify CI artifacts and publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download 41721141914 --name nexterm-aio-security-linux-amd64 --dir aio
+          gh run download 41721141914 --name candidate-engine-linux-x64 --dir engine
+          echo 'ac5b9d735c4b2c378b056c674c37e3a56e303a400d214185e0fcf5144f9fe8c5  aio/nexterm-aio-security.tar.gz' | sha256sum -c -
+          echo '867941b15a87a5a274608e969458599defdc725d30ca2ffce8e514fc9cc3e646  engine/nexterm-engine-linux-x64.tar.gz' | sha256sum -c -
+          cp aio/nexterm-aio-security.tar.gz nexterm-aio-linux-amd64.tar.gz
+          cp engine/nexterm-engine-linux-x64.tar.gz .
+          sha256sum nexterm-aio-linux-amd64.tar.gz nexterm-engine-linux-x64.tar.gz > SHA256SUMS.txt
+          gh release upload v1.2.2-nsg.17 nexterm-aio-linux-amd64.tar.gz nexterm-engine-linux-x64.tar.gz SHA256SUMS.txt

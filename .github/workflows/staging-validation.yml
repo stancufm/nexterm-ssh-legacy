@@ -1,0 +1,33 @@
+name: Nexterm isolated staging validation
+on:
+  pull_request:
+    paths:
+      - 'scripts/verify-legacy-integration.sh'
+      - '.github/workflows/staging-validation.yml'
+permissions:
+  contents: read
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build release candidate
+        run: |
+          docker build --pull --no-cache -f Dockerfile.server --build-arg VERSION=1.2.2-nsg.16 -t nexterm-server:stage .
+          docker build --pull --no-cache -f Dockerfile.engine --build-arg VERSION=1.2.2-nsg.16 -t nexterm-engine:stage .
+          docker build --no-cache -f Dockerfile --build-arg SERVER_IMAGE=nexterm-server:stage --build-arg ENGINE_IMAGE=nexterm-engine:stage -t nexterm-aio:stage .
+      - name: Validate controller integration and opt-in SSH legacy
+        run: sh scripts/verify-legacy-integration.sh nexterm-aio:stage
+      - name: Export validated staging image
+        run: |
+          docker save nexterm-aio:stage | gzip -1 > nexterm-aio-stage.tar.gz
+          sha256sum nexterm-aio-stage.tar.gz > nexterm-aio-stage.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexterm-aio-staging-linux-amd64
+          path: |
+            nexterm-aio-stage.tar.gz
+            nexterm-aio-stage.sha256
+          if-no-files-found: error
+          retention-days: 7

@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.2-nsg.17
+
+- Route SSH monitoring and status checks through each device’s configured engine.
+- Isolate status checks and limit concurrency so slow or disconnected targets do not invalidate an entire cycle.
+
 ## v1.2.2-nsg.16
 
 - Builds the server with the pinned Node 26.13.0 runtime and requires patched Brotli packages in engine images and native release builds.

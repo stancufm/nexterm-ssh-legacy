@@ -18,16 +18,32 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Test monitoring engine routing
+        run: node --test tests/monitoring-engine.test.js
       - name: Build server and engine candidates
         run: |
-          docker build --pull --no-cache -f Dockerfile.server --build-arg VERSION=1.2.2-nsg.16 -t nexterm-server:security .
-          docker build --pull --no-cache -f Dockerfile.engine --build-arg VERSION=1.2.2-nsg.16 -t nexterm-engine:security .
+          docker build --pull --no-cache -f Dockerfile.server --build-arg VERSION=1.2.2-nsg.17 -t nexterm-server:security .
+          docker build --pull --no-cache -f Dockerfile.engine --build-arg VERSION=1.2.2-nsg.17 -t nexterm-engine:security .
           docker build --no-cache -f Dockerfile --build-arg SERVER_IMAGE=nexterm-server:security --build-arg ENGINE_IMAGE=nexterm-engine:security -t nexterm-aio:security .
       - name: Validate runtime and native modules
         run: |
           sh scripts/verify-server-image.sh nexterm-server:security
           docker run --rm --entrypoint node nexterm-aio:security -e 'if (process.version !== "v26.13.0") process.exit(1); console.log(process.version, process.versions.brotli)'
           docker run --rm --entrypoint sh nexterm-aio:security -c 'apk info -e "brotli-libs>=1.1.1-r0" && ldd /usr/local/bin/nexterm-engine && /usr/local/bin/nexterm-engine --help'
+      - name: Validate controller and SSH in staging
+        run: sh scripts/verify-monitoring-integration.sh nexterm-aio:security
+      - name: Export validated image
+        run: |
+          docker save nexterm-aio:security | gzip -1 > nexterm-aio-security.tar.gz
+          sha256sum nexterm-aio-security.tar.gz > nexterm-aio-security.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexterm-aio-security-linux-amd64
+          path: |
+            nexterm-aio-security.tar.gz
+            nexterm-aio-security.sha256
+          if-no-files-found: error
+          retention-days: 7
   native-engine:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -35,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build and verify native engine archive
         run: |
-          sed -i 's/^#define NEXTERM_ENGINE_VERSION ".*"/#define NEXTERM_ENGINE_VERSION "1.2.2-nsg.16"/' engine/src/proto/control_plane.h
+          sed -i 's/^#define NEXTERM_ENGINE_VERSION ".*"/#define NEXTERM_ENGINE_VERSION "1.2.2-nsg.17"/' engine/src/proto/control_plane.h
           docker run --rm -v "$PWD":/work -w /work -e ARCH=x64 debian:bookworm-slim sh scripts/build-engine-release.sh all
           sudo chown -R "$(id -u):$(id -g)" dist
           tar -tzf dist/nexterm-engine-linux-x64.tar.gz | grep 'libbrotlidec.so.1'

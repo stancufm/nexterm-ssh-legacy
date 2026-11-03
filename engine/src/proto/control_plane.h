@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <openssl/ssl.h>
 
-#define NEXTERM_ENGINE_VERSION "1.2.2-nsg.16"
+#define NEXTERM_ENGINE_VERSION "1.2.2-nsg.17"
 
 typedef struct nexterm_control_plane {
     int sock_fd;

@@ -30,6 +30,20 @@ jobs:
           sh scripts/verify-server-image.sh nexterm-server:security
           docker run --rm --entrypoint node nexterm-aio:security -e 'if (process.version !== "v26.13.0") process.exit(1); console.log(process.version, process.versions.brotli)'
           docker run --rm --entrypoint sh nexterm-aio:security -c 'apk info -e "brotli-libs>=1.1.1-r0" && ldd /usr/local/bin/nexterm-engine && /usr/local/bin/nexterm-engine --help'
+      - name: Validate controller and SSH in staging
+        run: sh scripts/verify-monitoring-integration.sh nexterm-aio:security
+      - name: Export validated image
+        run: |
+          docker save nexterm-aio:security | gzip -1 > nexterm-aio-security.tar.gz
+          sha256sum nexterm-aio-security.tar.gz > nexterm-aio-security.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexterm-aio-security-linux-amd64
+          path: |
+            nexterm-aio-security.tar.gz
+            nexterm-aio-security.sha256
+          if-no-files-found: error
+          retention-days: 7
   native-engine:
     runs-on: ubuntu-latest
     timeout-minutes: 60

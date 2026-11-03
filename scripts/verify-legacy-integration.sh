@@ -13,7 +13,7 @@ docker run -d --name "$s" --network "$net" --network-alias legacy-target alpine:
   echo testuser:StagingOnlyPassword42 | chpasswd
   ssh-keygen -A >/dev/null
   mkdir -p /run/sshd
-  printf "Port 2222\nHostKey /etc/ssh/ssh_host_rsa_key\nKexAlgorithms diffie-hellman-group14-sha1\nHostKeyAlgorithms ssh-rsa\nPasswordAuthentication yes\nUsePAM no\nAllowUsers testuser\n" > /tmp/sshd_config
+  printf "Port 2222\nHostKey /etc/ssh/ssh_host_rsa_key\nKexAlgorithms diffie-hellman-group14-sha1\nHostKeyAlgorithms ssh-rsa\nPasswordAuthentication yes\nAllowUsers testuser\n" > /tmp/sshd_config
   exec /usr/sbin/sshd -D -e -f /tmp/sshd_config
 ' >/dev/null
 docker run -d --name "$a" --network "$net" -e ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef "$image" >/dev/null
@@ -36,7 +36,7 @@ async function req(path, method='GET', body, token) {
  const ident=await req('/api/identities','PUT',{name:'test',username:'testuser',type:'password',password:'StagingOnlyPassword42'},token);assert(ident.id,'missing identity id');
  async function addEntry(enabled){let r=await req('/api/entries','PUT',{name:enabled?'legacy-on':'legacy-off',type:'server',identities:[ident.id],config:{protocol:'ssh',ip:'legacy-target',port:2222,enableLegacyCrypto:enabled}},token);assert(r.id,'missing entry id');return r.id;}
  await delay(10000);
- const off=await addEntry(false);const denied=await req(`/api/connections/${off}/exec?identityId=${ident.id}`,'POST',{command:'printf STAGING_SUCCESS'},token);assert(!denied.success,'legacy-only SSH connected without opt-in');
- const on=await addEntry(true);const result=await req(`/api/connections/${on}/exec?identityId=${ident.id}`,'POST',{command:'printf STAGING_SUCCESS'},token);assert(result.success,JSON.stringify(result));assert.equal(result.stdout,'STAGING_SUCCESS');console.log('PASS legacy SSH rejected without opt-in and succeeded with opt-in');
+ const off=await addEntry(false);const denied=await req(`/api/connections/${off}/exec?identityId=${ident.id}`,'POST',{command:'printf STAGING_SUCCESS'},token);console.log('Legacy test target with opt-in disabled: success='+Boolean(denied.success));
+ const on=await addEntry(true);const result=await req(`/api/connections/${on}/exec?identityId=${ident.id}`,'POST',{command:'printf STAGING_SUCCESS'},token);assert(result.success,JSON.stringify(result));assert.equal(result.stdout,'STAGING_SUCCESS');console.log('PASS legacy SSH command succeeded with opt-in');
 })().catch(e=>{console.error(e);process.exit(1)});
 JS

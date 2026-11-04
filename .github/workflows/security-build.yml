@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Test release integrity checks
+        run: bash tests/release-checks.sh
       - name: Test monitoring engine routing
         run: node --test tests/monitoring-engine.test.js
       - name: Build server and engine candidates

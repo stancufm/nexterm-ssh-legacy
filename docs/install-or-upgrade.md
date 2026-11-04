@@ -10,3 +10,5 @@ bash /tmp/nexterm-nsg.sh
 ```
 
 For a new server behind Nginx Proxy Manager, pass the shared Docker network, for example `bash /tmp/nexterm-nsg.sh --network npm_default`. For an existing instance, the script preserves its volume, encryption key, environment and attached Docker networks automatically.
+
+To upgrade directly from verified release artifacts with rollback, see [Release artifact upgrades](release-artifact-upgrades.md).
